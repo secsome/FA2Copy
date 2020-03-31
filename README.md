@@ -1,2 +1,2 @@
 # FA2Copy
-An extension for Final Alert 2
+[Download](https://secsome.github.io/post/chi-xu-geng-xin-map-editor-for-mo-33-geng-xin-ri-zhi/)
