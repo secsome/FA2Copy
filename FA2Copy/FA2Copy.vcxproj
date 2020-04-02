@@ -166,6 +166,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Syringe.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="FA2Copy.rc" />
