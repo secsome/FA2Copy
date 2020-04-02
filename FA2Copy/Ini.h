@@ -3,10 +3,10 @@
 
 #pragma region Includes
 
+#include <Windows.h>
 #include <string>
 #include <vector>
-#include <afx.h>
-#include <afxext.h>
+#include <fstream>
 
 #pragma endregion
 
@@ -57,4 +57,4 @@ public:
 };
 #pragma endregion
 
-#endif
+#endif// __FA2COPY_INI_

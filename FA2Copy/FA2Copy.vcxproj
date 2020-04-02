@@ -170,9 +170,6 @@
   <ItemGroup>
     <ResourceCompile Include="FA2Copy.rc" />
   </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\..\..\Games\Mental Omega\封面模板\Logo\LightBooter.ico" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

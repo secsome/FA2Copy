@@ -1,0 +1,51 @@
+使用的ID：9970-9999
+
+所属方 Houses
+9973 Button ...
+
+地形列表 Terrain Sort
+9975 ComboBox 子类别 Sub
+9983 ComboBox 主类别 Main
+9984 Button 刷新 Reload
+
+INI编辑器 INI Editor
+9971 Button 查找 Search
+9972 Edit 查找输入 Input search string
+9982 Button 添加 Add, override
+
+标签 Tag
+9970 Button 复制标签 Copy
+
+触发编辑器 Trigger
+9987 Button 复制触发 Copy Trigger, override
+9988 Button 添加事件 Add Event, override
+9989 Button 添加行为 Add Action, override
+9990 Button 复制事件 Copy Event
+9991 Button 复制行为 Copy Action
+
+特遣部队 Taskforce
+9985 ComboBox 特遣部队输入 Input string
+9986 Button 刷新（可能没啥用，但还是留个备用）Reload (maybe not necessary)
+9995 Button 复制特遣部队成员  Copy Taskforce member
+9998 Button 复制特遣部队 Copy Taskforce
+
+脚本 Script
+9976 Button 添加脚本 Add Script, override
+9977 Button 刷新脚本模板 Reload Template
+9978 ComboBox 脚本模板 Select Template
+9992 Button 添加脚本成员 Add Script member
+9993 CheckBox 插入模式 Insert Mode
+9996 Button 复制脚本成员 Copy Script member
+9999 Button 复制脚本 Copy Script
+
+作战小队 Team
+9979 Button 新建作战小队 New Team, override
+9980 ComboBox 作战小队模板 Team Template
+9981 Button 刷新作战小队模板 Reload Template
+9997 Button 复制作战小队 Copy Team
+
+AI触发 AI Trigger
+9994 Button 复制AI触发 Copy AI Trigger
+
+Object Viewer（废弃） Unused
+9974 Button for debug use, but unused now

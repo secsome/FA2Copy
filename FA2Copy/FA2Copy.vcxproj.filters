@@ -47,9 +47,4 @@
       <Filter>资源文件</Filter>
     </ResourceCompile>
   </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\..\..\Games\Mental Omega\封面模板\Logo\LightBooter.ico">
-      <Filter>资源文件</Filter>
-    </Image>
-  </ItemGroup>
 </Project>

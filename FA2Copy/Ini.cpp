@@ -1,11 +1,5 @@
 #pragma region Includes
 #include "Ini.h"
-#include <afx.h>
-#include <afxext.h>
-#include <string>
-#include <atlbase.h>
-#include <vector>
-#include <fstream>
 #pragma endregion
 
 #pragma region TerrainSort

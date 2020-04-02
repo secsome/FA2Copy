@@ -1,17 +1,9 @@
 // FA2Copy DllMain.cpp
 // Programed by SEC-SOME
-// All rights reserved.
 
-#pragma region Includes
-#include "ini.h"
-#include "logger.h"
+// In fact I was about to program a MFC dll
+// but then found it unnecessary XD
 #include "stdafx.h"
-#pragma endregion
-
-#pragma region Extern Variables
-
-
-#pragma endregion
 
 #pragma region Global Variables
 // Global Variables
@@ -19,7 +11,7 @@
 logger g_logger; // logger
 
 HWND g_FA2Wnd; // Final Alert 2 Window Handle
-HMODULE g_hModule;// Final Alert 2 HModule
+HMODULE g_hModule;// Final Alert 2 HModule, HInstance as well
 
 HHOOK g_CallWndHook, g_GetMsgHook;
 // CallWndHook: Catch messages
@@ -30,6 +22,7 @@ BOOL g_GetMsgHooked;
 BOOL g_TaskforcesRead;
 BOOL g_TaskforceComboFlag;
 BOOL g_TerrainTheaterFlag;
+BOOL g_AllowHotKey;
 
 ATOM g_CTRL_S, g_CTRL_O, g_CTRL_N; // Hot Keys
 WNDPROC g_oldProc; // Save old Proc for Hot Keys
@@ -51,7 +44,7 @@ Ini g_ini; // Ini Config file
 
 // Necessary items for FindWindow
 struct FindWindowConfig {
-	std::string DialogClass, MapWnd, IniWnd, HouseWnd, TriggerWnd,
+	std::string DialogClass, MapWnd, IniWnd, HouseWnd, TriggerWnd, TagWnd, 
 		TriggerGlobalWnd, TriggerEventWnd, TriggerActionWnd,
 		TaskforceWnd, ScriptWnd, TeamWnd, AITriggerWnd, TerrainWnd,
 		SaveWnd, LoadWnd, NewWnd1, NewWnd2, NewWnd3;
@@ -64,9 +57,9 @@ private:
 		std::string Hint, Error, Warning;
 	};
 	struct s_Message {
-		std::string HookFailed, UnHookFailed, IniNotExist, TerrainDisabled, ToolDisabled,
+		std::string HookFailed, UnHookFailed, IniNotExist, TerrainDisabled,
 			TerrainMapUnloaded, TerrainMapUnknown, TriggerEventFull, TriggerActionFull,
-			HouseWndNotFound;
+			HouseWndNotFound, INISectionNotFound;
 	};
 public:
 	MessageBoxConfig() {
@@ -141,7 +134,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 			{
 
 			//Used ID
-			//9973 - 9999
+			//9970 - 9999
 			
 			//House
 			case 9973: {//Allies Manager
@@ -167,30 +160,41 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				int HouseCount = SendMessage(ComboBox, CB_GETCOUNT, NULL, NULL);
 				int CurHouseIndex = SendMessage(ComboBox, CB_GETCURSEL, NULL, NULL);
-				TCHAR str[256];
-				GetWindowText(ComboBox, str, 256);
+				TCHAR* str;
+				int strLen = GetWindowTextLength(ComboBox) + 1;
+				str = new TCHAR[strLen];
+				GetWindowText(ComboBox, str, strLen);
 				std::string CurHouseStr = str;
 				g_ini.Trim(CurHouseStr);
 
 				std::unordered_map<std::string, bool> Houses;
 				for (register int i = 0; i < HouseCount; ++i) {
 					SendMessage(ComboBox, CB_SETCURSEL, i, NULL);
-					GetWindowText(ComboBox, str, 256);
+					strLen = GetWindowTextLength(ComboBox) + 1;
+					delete[] str;
+					str = new TCHAR[strLen];
+					GetWindowText(ComboBox, str, strLen);
 					std::string key = str;
 					Houses[key] = false;
 				}
+				delete[] str;
 				SendMessage(ComboBox, CB_SETCURSEL, HouseCount >= 0 ? CurHouseIndex : -1, NULL);
-				TCHAR AllieStr[1024];
-				GetWindowText(Edit, AllieStr, 1024);
+				TCHAR* AllieStr;
+				strLen= GetWindowTextLength(Edit) + 1;
+				AllieStr = new TCHAR[strLen];
+				GetWindowText(Edit, AllieStr, strLen);
 				std::string AlliedText = AllieStr;
+				delete[] AllieStr;
 
-				std::vector<std::string> AllieStrs = g_ini.Split(AllieStr, ',');
+				std::vector<std::string> AllieStrs = g_ini.Split(AlliedText, ',');
 				for (register int i = 0, cnt = AllieStrs.size(); i < cnt; ++i) {
 					g_ini.Trim(AllieStrs[i]);
 					if (Houses.find(AllieStrs[i]) != Houses.end()) //House Exists
 						Houses[AllieStrs[i]] = true;
 				}
 				
+				Houses.erase(CurHouseStr);
+
 				std::pair<std::unordered_map<std::string, bool>*, std::pair<std::string*, std::string*>*> Param;
 				std::pair<std::string*, std::string*> StringParam = std::make_pair(&AlliedText, &CurHouseStr);
 				
@@ -200,14 +204,14 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				DialogBoxParam(g_hModule, MAKEINTRESOURCE(IDD_DIALOG1), HouseWnd, HouseDlgProc, (LPARAM)&Param);
 				
 				SetWindowText(Edit, AlliedText.c_str());
-
+				
 				break;
 			}
 			//Tree View Debug
-			case 9974: {
+			/*case 9974: {
 				g_logger.Info("Tree View Debug");
 				break;
-			}
+			}*/
 			//Terrain Group
 			case 9975: {//Sub ComboBox
 				switch (wmHi) {
@@ -280,10 +284,13 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 						g_FindWindowConfig.MapWnd.c_str()
 					);
 					HWND ComboTerrain = GetDlgItem(MapWnd, 1046);
-					TCHAR str[256];
-					GetWindowText(ComboTerrain, str, 256);
+					TCHAR* str;
+					int strLen = GetWindowTextLength(ComboTerrain) + 1;
+					str = new TCHAR[strLen];
+					GetWindowText(ComboTerrain, str, strLen);
 					g_TerrainTheater = str;
 					SendMessage(MapWnd, WM_CLOSE, NULL, NULL);
+					delete[] str;
 					break;
 				}
 				HWND TerrainWnd1 = FindWindowEx(g_FA2Wnd, NULL, "AfxFrameOrView42s", NULL);
@@ -333,6 +340,41 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 			//INI
+			case 9971: {
+				HWND INIWnd = FindWindow(
+					g_FindWindowConfig.DialogClass.c_str(),
+					g_FindWindowConfig.IniWnd.c_str()
+				);
+				HWND SearchEdit = GetDlgItem(INIWnd, 9972);
+				HWND CheckBox = GetDlgItem(INIWnd, 9970);
+				HWND ComboBox = GetDlgItem(INIWnd, 1036);
+				int strLen = GetWindowTextLength(SearchEdit) + 1;
+				TCHAR* str = new TCHAR[strLen];
+				GetWindowText(SearchEdit, str, strLen);
+				int FindStartIndex = (SendMessage(CheckBox, BM_GETCHECK, NULL, NULL) == BST_CHECKED)
+					? -1
+					: SendMessage(ComboBox, CB_GETCURSEL, NULL, NULL);
+				int FindResult = SendMessage(
+					ComboBox,
+					CB_FINDSTRING, 
+					FindStartIndex,
+					(LPARAM)str
+				);
+
+				if (FindResult == CB_ERR || (FindResult < FindStartIndex && FindStartIndex >= 0))
+					MessageBox(
+						NULL,
+						g_MessageBoxConfig.Message.INISectionNotFound.c_str(),
+						g_MessageBoxConfig.Captain.Hint.c_str(),
+						MB_OK
+					);
+				else {
+					SendMessage(ComboBox, CB_SETCURSEL, FindResult, NULL);
+					SendMessage(INIWnd, WM_COMMAND, MAKELPARAM(1036, CBN_SELCHANGE), (LPARAM)ComboBox);
+				}
+				delete[] str;
+				break;
+			}
 			case 9982: {//Override the Add Button
 				g_logger.Info("Add INI Section");
 				HWND INIWnd = FindWindow(
@@ -344,12 +386,11 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				//Remember Sections
 				int SectionCount = SendMessage(ComboBox, CB_GETCOUNT, NULL, NULL);
-				std::vector<TCHAR[256]> KeyDictionary(SectionCount);
+				std::vector<TCHAR*> KeyDictionary(SectionCount);
 				for (register int i = 0; i < SectionCount; ++i) {
-					TCHAR str[256];
-					SendMessage(ComboBox, CB_GETLBTEXT, i, (LPARAM)str);
-					str[255] = '\0';
-					strcpy(KeyDictionary[i], str);
+					int strLen = SendMessage(ComboBox, CB_GETLBTEXTLEN, NULL, NULL) + 1;
+					KeyDictionary[i] = new TCHAR[strLen];
+					SendMessage(ComboBox, CB_GETLBTEXT, i, (LPARAM)KeyDictionary[i]);
 				}
 
 				g_logger.Info(std::to_string(SectionCount) + "INI section loaded");
@@ -362,12 +403,58 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				for (i = 0; i < SectionCount; ++i) {
 					SendMessage(ComboBox, CB_SETCURSEL, i, NULL);
 					SendMessage(INIWnd, WM_COMMAND, MAKEWPARAM(1036, CBN_SELCHANGE), (LPARAM)ComboBox);
-					TCHAR str[255];
+					TCHAR* str;
+					int strLen = SendMessage(ComboBox, CB_GETLBTEXTLEN, i, NULL) + 1;
+					str = new TCHAR[strLen];
 					SendMessage(ComboBox, CB_GETLBTEXT, i, (LPARAM)str);
-					if (strcmp(str, KeyDictionary[i]) != 0)	break;
+					if (strcmp(str, KeyDictionary[i]) != 0) {
+						delete[] str;
+						break;
+					}
+					delete[] str;
 				}
 				SendMessage(ComboBox, CB_SETCURSEL, i, NULL);
 				SendMessage(INIWnd, WM_COMMAND, MAKEWPARAM(1036, CBN_SELCHANGE), (LPARAM)ComboBox);
+
+				for (auto x : KeyDictionary)	delete[] x;
+
+				break;
+			}
+			//Tag
+			case 9970: {//Copy Tag
+				HWND TagWnd = FindWindow(
+					g_FindWindowConfig.DialogClass.c_str(),
+					g_FindWindowConfig.TagWnd.c_str()
+				);
+
+				HWND TagCombo = GetDlgItem(TagWnd, 1083);
+				if (SendMessage(TagCombo, CB_GETCURSEL, NULL, NULL) == CB_ERR)	break;
+
+				HWND BtnAdd = GetDlgItem(TagWnd, 1154);
+				int ID[3] = { 1010,1156,1157 };
+				HWND Control[3];
+				TCHAR* CopyData[3];
+				for (register int i = 0; i < 3; ++i) {
+					Control[i] = GetDlgItem(TagWnd, ID[i]);
+					int strLen = GetWindowTextLength(Control[i]) + 1;
+					CopyData[i] = new TCHAR[strLen];
+					GetWindowText(Control[i], CopyData[i], strLen);
+				}
+					
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1154, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, 1154, NULL);
+				
+				//SetWindowText(Control[0], strcat(CopyData[0], " Clone"));
+				std::string NewName = CopyData[0];
+				NewName += " Clone";
+				SetWindowText(Control[0], NewName.c_str());
+
+				for (register int i = 1; i < 3; ++i) {
+					SetWindowText(Control[i], CopyData[i]);
+					SendMessage(TagWnd, WM_COMMAND, MAKEWPARAM(ID[i], CBN_EDITCHANGE), (LPARAM)Control[i]);
+				}
+				for (register int i = 0; i < 3; ++i)	delete[] CopyData[i];
+
 				break;
 			}
 			//Trigger
@@ -390,8 +477,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				HWND ComboBox = GetDlgItem(GlobalWnd, 1394);
 				HWND BtnCopy = GetDlgItem(TriggerWnd, 1163);
 				int CurType;
-				TCHAR str[255];
-				GetWindowText(ComboBox, str, 255);
+				TCHAR *str;
+				int strLen = GetWindowTextLength(ComboBox) + 1;
+				str = new TCHAR[strLen];
+				GetWindowText(ComboBox, str, strLen);
 				switch (str[0]) {
 				case '0':
 					CurType = 0;
@@ -411,6 +500,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(BtnCopy, WM_LBUTTONUP, 1403, NULL);
 				SendMessage(ComboBox, CB_SETCURSEL, CurType, NULL);
 				SendMessage(GlobalWnd, WM_COMMAND, MAKEWPARAM(1394, CBN_SELCHANGE), (LPARAM)ComboBox);
+				delete[] str;
 				break;
 			}
 			case 9988: {
@@ -516,7 +606,6 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				HWND EventList = GetDlgItem(EventWnd, 1401);
 				HWND EventPara = GetDlgItem(EventWnd, 1402);
 				int CurrEventCount = SendMessage(CurrEventHandle, CB_GETCOUNT, NULL, NULL);
-				//if (CurrEventCount == 0)	break;
 				if (CurrEventCount > 19) {
 					g_logger.Warn("Current trigger's event is full");
 					MessageBox(
@@ -535,14 +624,18 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					++CurIndex;
 					DesIndex = CurrEventCount - 8;
 				}
-				TCHAR CurType[255];
-				GetWindowText(EventType, CurType, 255);
+				TCHAR *CurType;
+				int curLen = GetWindowTextLength(EventType) + 1;
+				CurType = new TCHAR[curLen];
+				GetWindowText(EventType, CurType, curLen);
 				int CurParaCount = SendMessage(EventList, LB_GETCOUNT, NULL, NULL);
-				std::vector<TCHAR[256]> CurPara(CurParaCount);
+				std::vector<TCHAR*> CurPara(CurParaCount);
 				for (register int i = 0; i < CurParaCount; ++i) {
 					SendMessage(EventList, LB_SETCURSEL, i, NULL);
 					SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1401, LBN_SELCHANGE), (LPARAM)EventList);
-					GetWindowText(EventPara, CurPara[i], 256);
+					int strLen = GetWindowTextLength(EventPara) + 1;
+					CurPara[i] = new TCHAR[strLen];
+					GetWindowText(EventPara, CurPara[i], strLen);
 				}
 
 				HWND BtnAdd = GetDlgItem(EventWnd, 1396);
@@ -552,12 +645,14 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1167, CBN_SELCHANGE), (LPARAM)CurrEventHandle);
 
 				SetWindowText(EventType, CurType);
+				delete[] CurType;
 				SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1175, CBN_EDITCHANGE), (LPARAM)EventType);
 
 				for (register int i = 0; i < CurParaCount; ++i) {
 					SendMessage(EventList, LB_SETCURSEL, i, NULL);
 					SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1401, LBN_SELCHANGE), (LPARAM)EventList);
 					SetWindowText(EventPara, CurPara[i]);
+					delete[] CurPara[i];
 					SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1402, CBN_EDITCHANGE), (LPARAM)EventPara);
 				}
 
@@ -600,14 +695,18 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					++CurIndex;
 					DesIndex = CurrEventCount - 8;
 				}
-				TCHAR CurType[256];
-				GetWindowText(ActionType, CurType, 256);
+				TCHAR *CurType;
+				int curLen = GetWindowTextLength(ActionType) + 1;
+				CurType = new TCHAR[curLen];
+				GetWindowText(ActionType, CurType, curLen);
 				int CurParaCount = SendMessage(ActionList, LB_GETCOUNT, NULL, NULL);
-				std::vector<TCHAR[256]> CurPara(CurParaCount);
+				std::vector<TCHAR*> CurPara(CurParaCount);
 				for (register int i = 0; i < CurParaCount; ++i) {
 					SendMessage(ActionList, LB_SETCURSEL, i, NULL);
 					SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1401, LBN_SELCHANGE), (LPARAM)ActionList);
-					GetWindowText(ActionPara, CurPara[i], 256);
+					int strLen = GetWindowTextLength(ActionPara) + 1;
+					CurPara[i] = new TCHAR[strLen];
+					GetWindowText(ActionPara, CurPara[i], strLen);
 				}
 
 				HWND BtnAdd = GetDlgItem(ActionWnd, 1403);
@@ -617,12 +716,14 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1170, CBN_SELCHANGE), (LPARAM)CurrActionHandle);
 
 				SetWindowText(ActionType, CurType);
+				delete[] CurType;
 				SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1178, CBN_EDITCHANGE), (LPARAM)ActionType);
 
 				for (register int i = 0; i < CurParaCount; ++i) {
 					SendMessage(ActionList, LB_SETCURSEL, i, NULL);
 					SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1401, LBN_SELCHANGE), (LPARAM)ActionList);
 					SetWindowText(ActionPara, CurPara[i]);
+					delete[] CurPara[i];
 					SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1402, CBN_EDITCHANGE), (LPARAM)ActionPara);
 				}
 				break;
@@ -639,11 +740,13 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					HWND NewType = GetDlgItem(TaskforceWnd, 9985);
 					HWND OldType = GetDlgItem(TaskforceWnd, 1149);
 					if (g_TaskforcesRead) {
-						TCHAR cur[256];
-						GetWindowText(OldType, cur, 256);
+						TCHAR *cur;
+						int curLen = GetWindowTextLength(OldType) + 1;
+						cur = new TCHAR[curLen];
+						GetWindowText(OldType, cur, curLen);
 						SetWindowText(NewType, cur);
 						SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(9985, CBN_SELCHANGE), (LPARAM)NewType);
-						g_logger.Info("Read taskforce member: " + (std::string)cur);
+						delete[] cur;
 						break;
 					}
 					g_TaskforcesRead = TRUE;
@@ -654,30 +757,39 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SendMessage(NewType, CB_RESETCONTENT, NULL, NULL);
 					SendMessage(NewType, CB_SETCURSEL, -1, NULL);
 					for (register int i = 0; i < Count; ++i) {
-						TCHAR cur[256];
+						TCHAR* cur;
+						int curLen = 4 * GetWindowTextLength(OldType) + 1;
+						cur = new TCHAR[curLen];
 						SendMessage(OldType, CB_SETCURSEL, i, NULL);
-						GetWindowText(OldType, cur, 256);
+						GetWindowText(OldType, cur, curLen);
 						SendMessage(NewType, CB_ADDSTRING, NULL, (LPARAM)cur);
+
+						delete[] cur;
 					}
 					SendMessage(OldType, CB_SETCURSEL, CurSel, NULL);
 
 					break;
 				}
+				case CBN_EDITCHANGE:
+				case CBN_EDITUPDATE:
 				case CBN_KILLFOCUS:{
-					g_logger.Info("Taskforce KILLFOCUS");
+					g_logger.Info("Taskforce Update");
 					HWND TaskforceWnd = FindWindow(
 						g_FindWindowConfig.DialogClass.c_str(),
 						g_FindWindowConfig.TaskforceWnd.c_str()
 					);
 					HWND NewType = GetDlgItem(TaskforceWnd, 9985);
 					HWND OldType = GetDlgItem(TaskforceWnd, 1149);
-					TCHAR t_Type[256];
-					GetWindowText(NewType, t_Type, 256);
-					g_logger.Info("Set current taskforce member to " + (std::string)t_Type);
+					TCHAR *t_Type;
+					int tLen = GetWindowTextLength(NewType) + 1;
+					t_Type = new TCHAR[tLen];
+					GetWindowText(NewType, t_Type, tLen);
+					//g_logger.Info("Set current taskforce member to " + (std::string)t_Type);
 					int Index = SendMessage(OldType, CB_FINDSTRING, NULL, (LPARAM)t_Type);
+					delete[] t_Type;
 					SendMessage(OldType, CB_SETCURSEL, Index, NULL);
 					g_TaskforceComboFlag = TRUE;
-					SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1149, CBN_SELCHANGE), (LPARAM)OldType);
+					SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1149, CBN_EDITCHANGE), (LPARAM)OldType);
 					break;
 				}
 				default:
@@ -700,10 +812,14 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(NewType, CB_RESETCONTENT, NULL, NULL);
 				SendMessage(NewType, CB_SETCURSEL, -1, NULL);
 				for (register int i = 0; i < Count; ++i) {
-					TCHAR cur[256];
+					TCHAR *cur;
+					int curLen = 4 * GetWindowTextLength(OldType) + 1;
+					cur = new TCHAR[curLen];
 					SendMessage(OldType, CB_SETCURSEL, i, NULL);
-					GetWindowText(OldType, cur, 256);
+					GetWindowText(OldType, cur, curLen);
+
 					SendMessage(NewType, CB_ADDSTRING, NULL, (LPARAM)cur);
+					delete[] cur;
 				}
 				g_TaskforcesRead = TRUE;
 				break;
@@ -718,9 +834,13 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				HWND EditNum = GetDlgItem(TaskforceWnd, 1148);
 				HWND ComboType = GetDlgItem(TaskforceWnd, 1149);
 				HWND ListBox = GetDlgItem(TaskforceWnd, 1145);
-				TCHAR CurNum[256], CurType[256];
-				GetWindowText(ComboType, CurType, 256);
-				GetWindowText(EditNum, CurNum, 256);
+				TCHAR *CurNum, *CurType;
+				int numLen = GetWindowTextLength(EditNum) + 1;
+				int typeLen = GetWindowTextLength(ComboType) + 1;
+				CurNum = new TCHAR[numLen];
+				CurType = new TCHAR[typeLen];
+				GetWindowText(ComboType, CurType, typeLen);
+				GetWindowText(EditNum, CurNum, numLen);
 				g_logger.Info("Currect (Type,Number) :(" + (std::string)CurType + ',' + (std::string)CurNum);
 				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1146, 0);
 				SendMessage(BtnAdd, WM_LBUTTONUP, 1146, 0);
@@ -730,6 +850,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SetWindowText(ComboType, CurType);
 				SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1149, CBN_SELCHANGE), (LPARAM)ComboType);
 				SetWindowText(EditNum, CurNum);
+				delete[] CurNum;
+				delete[] CurType;
 				break;
 			}
 			case 9998: {//Copy Taskforce
@@ -738,21 +860,31 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					g_FindWindowConfig.DialogClass.c_str(),
 					g_FindWindowConfig.TaskforceWnd.c_str()
 				);
-				TCHAR TaskforceName[256], TaskforceGroup[256];
+				TCHAR* TaskforceName, * TaskforceGroup;
 				HWND EditName = GetDlgItem(TaskforceWnd, 1010);
 				HWND EditGroup = GetDlgItem(TaskforceWnd, 1122);
 				HWND EditNum = GetDlgItem(TaskforceWnd, 1148);
 				HWND ComboType = GetDlgItem(TaskforceWnd, 1149);
 				HWND ListBox = GetDlgItem(TaskforceWnd, 1145);
-				GetWindowText(EditName, TaskforceName, 256);
-				GetWindowText(EditGroup, TaskforceGroup, 256);
+
+				int nameLen = GetWindowTextLength(EditName) + 1;
+				int groupLen = GetWindowTextLength(EditGroup) + 1;
+				TaskforceName = new TCHAR[nameLen];
+				TaskforceGroup = new TCHAR[groupLen];
+
+				GetWindowText(EditName, TaskforceName, nameLen);
+				GetWindowText(EditGroup, TaskforceGroup, groupLen);
 				int ListBoxCount = SendMessage(ListBox, LB_GETCOUNT, 0, 0);
-				std::vector<TCHAR[256]> UnitType(ListBoxCount), UnitNum(ListBoxCount);
+				std::vector<TCHAR*> UnitType(ListBoxCount), UnitNum(ListBoxCount);
 				for (register int i = 0; i < ListBoxCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1145, LBN_SELCHANGE), (LPARAM)ListBox);
-					GetWindowText(ComboType, UnitType[i], 256);
-					GetWindowText(EditNum, UnitNum[i], 256);
+					int typeLen = GetWindowTextLength(ComboType) + 1;
+					int numLen = GetWindowTextLength(EditNum) + 1;
+					UnitType[i] = new TCHAR[typeLen];
+					UnitNum[i] = new TCHAR[numLen];
+					GetWindowText(ComboType, UnitType[i], typeLen);
+					GetWindowText(EditNum, UnitNum[i], numLen);
 				}
 				g_logger.Info(std::to_string(ListBoxCount) + " taskforce members saved");
 
@@ -760,7 +892,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				HWND BtnNew = GetDlgItem(TaskforceWnd, 1151);
 				SendMessage(BtnNew, WM_LBUTTONDOWN, 1151, 0);
 				SendMessage(BtnNew, WM_LBUTTONUP, 1151, 0);
-				SetWindowText(EditName, strcat(TaskforceName, " Clone"));
+				//SetWindowText(EditName, strcat(TaskforceName, " Clone"));
+				std::string NewTaskforceName = TaskforceName;
+				NewTaskforceName += " Clone";
+				SetWindowText(EditName, NewTaskforceName.c_str());
 				SetWindowText(EditGroup, TaskforceGroup);
 				HWND BtnAdd = GetDlgItem(TaskforceWnd, 1146);
 				for (register int i = 0; i < ListBoxCount; ++i) {
@@ -771,7 +906,11 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SetWindowText(ComboType, UnitType[i]);
 					SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1149, CBN_SELCHANGE), (LPARAM)ComboType);
 					SetWindowText(EditNum, UnitNum[i]);
+					delete[] UnitType[i];
+					delete[] UnitNum[i];
 				}
+				delete[] TaskforceGroup;
+				delete[] TaskforceName;
 				break;
 			}
 			//Scripts
@@ -799,12 +938,11 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				HWND AllScriptCombo = GetDlgItem(ScriptWnd, 1193);
 				int ScriptCount = SendMessage(AllScriptCombo, CB_GETCOUNT, 0, 0);
-				std::vector<TCHAR[256]> ScriptDictionary(ScriptCount);
+				std::vector<TCHAR*> ScriptDictionary(ScriptCount);
 				for (register int i = 0; i < ScriptCount; ++i) {
-					TCHAR str[256];
-					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)str);
-					str[255] = '\0';
-					strcpy(ScriptDictionary[i], str);
+					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, NULL, NULL) + 1;
+					ScriptDictionary[i] = new TCHAR[strLen];
+					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)ScriptDictionary[i]);
 				}
 
 				HWND BtnNew = GetDlgItem(ScriptWnd, 1154);
@@ -817,6 +955,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)str);
 					if (strcmp(str, ScriptDictionary[i]) != 0)	break;
 				}
+
 				SendMessage(AllScriptCombo, CB_SETCURSEL, i, NULL);
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1193, CBN_SELCHANGE), (LPARAM)AllScriptCombo);
 
@@ -835,6 +974,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SetWindowText(ComboPara, curTemplate[i]->second.c_str());
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1196, CBN_SELCHANGE), (LPARAM)ComboPara);
 				}
+
+				for (auto x : ScriptDictionary)	delete[] x;
 
 				break;
 			}
@@ -885,17 +1026,18 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				}
 				g_logger.Info("Script Member - Insert Mode ON");
 				std::vector<int> CurType(ScriptCount - CurSelIndex + 1);
-				std::vector<TCHAR[256]> CurPara(ScriptCount - CurSelIndex + 1);
-				for (register int i = CurSelIndex + 1; i < ScriptCount; ++i) {
+				std::vector<TCHAR*> CurPara(ScriptCount - CurSelIndex + 1);
+				for (register int i = CurSelIndex; i < ScriptCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
-					CurType[i - CurSelIndex - 1] = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
-					GetWindowText(ComboPara, CurPara[i - CurSelIndex - 1], 256);
+					CurType[i - CurSelIndex] = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
+					int strLen = GetWindowTextLength(ComboPara) + 1;
+					CurPara[i - CurSelIndex] = new TCHAR[strLen];
+					GetWindowText(ComboPara, CurPara[i - CurSelIndex], strLen);
 				}
 				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
 				SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
 				++ScriptCount;
-				++CurSelIndex;
 				for (register int i = CurSelIndex + 1; i < ScriptCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
@@ -912,6 +1054,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1064, CBN_SELCHANGE), (LPARAM)ComboType);
 				SetWindowText(ComboPara, "0");
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1196, CBN_SELCHANGE), (LPARAM)ComboPara);
+				for (auto x : CurPara)	delete[] x;
 				break;
 			}
 			case 9996: {//Copy Script Member
@@ -950,22 +1093,23 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1196, CBN_SELCHANGE), (LPARAM)ComboPara);
 					break;
 				}
-				g_logger.Info("Script Member - Insert Mode ON");
 				int CopyType = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
 				TCHAR CopyPara[256];
 				GetWindowText(ComboPara, CopyPara, 256);
+				g_logger.Info("Script Member - Insert Mode ON");
 				std::vector<int> CurType(ScriptCount - CurSelIndex + 1);
-				std::vector<TCHAR[256]> CurPara(ScriptCount - CurSelIndex + 1);
-				for (register int i = CurSelIndex + 1; i < ScriptCount; ++i) {
+				std::vector<TCHAR*> CurPara(ScriptCount - CurSelIndex + 1);
+				for (register int i = CurSelIndex; i < ScriptCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
-					CurType[i - CurSelIndex - 1] = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
-					GetWindowText(ComboPara, CurPara[i - CurSelIndex - 1], 256);
+					CurType[i - CurSelIndex] = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
+					int strLen = GetWindowTextLength(ComboPara) + 1;
+					CurPara[i - CurSelIndex] = new TCHAR[strLen];
+					GetWindowText(ComboPara, CurPara[i - CurSelIndex], strLen);
 				}
 				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
 				SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
 				++ScriptCount;
-				++CurSelIndex;
 				for (register int i = CurSelIndex + 1; i < ScriptCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
@@ -982,6 +1126,7 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1064, CBN_SELCHANGE), (LPARAM)ComboType);
 				SetWindowText(ComboPara, CopyPara);
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1196, CBN_SELCHANGE), (LPARAM)ComboPara);
+				for (auto x : CurPara)	delete[] x;
 				break;
 			}
 			case 9999: {//Copy Script
@@ -994,26 +1139,30 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				HWND ListBox = GetDlgItem(ScriptWnd, 1170);
 				HWND ComboType = GetDlgItem(ScriptWnd, 1064);
 				HWND ComboPara = GetDlgItem(ScriptWnd, 1196);
-				TCHAR ScriptName[256];
-				GetWindowText(EditName, ScriptName, 256);
+				TCHAR *ScriptName;
+				int nameLen = GetWindowTextLength(EditName) + 1;
+				ScriptName = new TCHAR[nameLen];
+				GetWindowText(EditName, ScriptName, nameLen);
 				int ListBoxCount = SendMessage(ListBox, LB_GETCOUNT, 0, 0);
-				std::vector<TCHAR[256]> ScriptPara(ListBoxCount);
+				std::vector<TCHAR*> ScriptPara(ListBoxCount);
 				std::vector<int> ScriptType(ListBoxCount);
 				for (register int i = 0; i < ListBoxCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					ScriptType[i] = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
-					GetWindowText(ComboPara, ScriptPara[i], 256);
+					int strLen = GetWindowTextLength(ComboPara) + 1;
+					ScriptPara[i] = new TCHAR[strLen];
+					GetWindowText(ComboPara, ScriptPara[i], strLen);
 				}
 
 				//Remember All
 				HWND AllScriptCombo = GetDlgItem(ScriptWnd, 1193);
 				int ScriptCount = SendMessage(AllScriptCombo, CB_GETCOUNT, 0, 0);
-				std::vector<TCHAR[256]> ScriptDictionary(ScriptCount);
+				std::vector<TCHAR*> ScriptDictionary(ScriptCount);
 				for (register int i = 0; i < ScriptCount; ++i) {
-					TCHAR str[256];
-					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)str);
-					strcpy(ScriptDictionary[i], str);
+					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, i, NULL) + 1;
+					ScriptDictionary[i] = new TCHAR[strLen];
+					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)ScriptDictionary[i]);
 				}
 
 				g_logger.Info(std::to_string(ScriptCount) + " Script Members Stored");
@@ -1026,15 +1175,25 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				//Find The New Script
 				register int i;
 				for (i = 0; i < ScriptCount; ++i) {
-					TCHAR str[256];
+					TCHAR* str;
+					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, i, NULL) + 1;
+					str = new TCHAR[strLen];
 					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)str);
-					if (strcmp(str, ScriptDictionary[i]) != 0)	break;
+					if (strcmp(str, ScriptDictionary[i]) != 0) {
+						delete[] str;
+						break;
+					}
+					delete[] str;
 				}
 				SendMessage(AllScriptCombo, CB_SETCURSEL, i, NULL);
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1193, CBN_SELCHANGE), (LPARAM)AllScriptCombo);
 
 				//Do Copy Works
-				SetWindowText(EditName, strcat(ScriptName, " Clone"));
+				//SetWindowText(EditName, strcat(ScriptName, " Clone"));
+				std::string NewName = ScriptName;
+				NewName += " Clone";
+				SetWindowText(EditName, NewName.c_str());
+
 				HWND BtnAdd = GetDlgItem(ScriptWnd, 1173);
 				for (register int j = 0; j < ListBoxCount; ++j) {
 					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, 0);
@@ -1046,6 +1205,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SetWindowText(ComboPara, ScriptPara[j]);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1196, CBN_SELCHANGE), (LPARAM)ComboPara);
 				}
+
+				for (auto x : ScriptPara)	delete[] x;
+				for (auto x : ScriptDictionary) delete[] x;
+				delete[] ScriptName;
 
 				break;
 			}
@@ -1146,19 +1309,46 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				for (register int i = 0; i < 20; ++i)	Check[i] = GetDlgItem(TeamWnd, CheckID[i]);
 
 				//Save Current Team
-				TCHAR CurrentTeamTextData[13][256];
-				GetWindowText(EditName, CurrentTeamTextData[0], 256);
+				TCHAR* CurrentTeamTextData[13];
+				int strLen;
+				strLen = GetWindowTextLength(EditName) + 1;
+				CurrentTeamTextData[0] = new TCHAR[strLen];
+				GetWindowText(EditName, CurrentTeamTextData[0], strLen);
+				strLen = GetWindowTextLength(ComboExpLevel) + 1;
+				CurrentTeamTextData[1] = new TCHAR[strLen];
 				GetWindowText(ComboExpLevel, CurrentTeamTextData[1], 256);
+				strLen = GetWindowTextLength(ComboHouse) + 1;
+				CurrentTeamTextData[2] = new TCHAR[strLen];
 				GetWindowText(ComboHouse, CurrentTeamTextData[2], 256);
+				strLen = GetWindowTextLength(EditPriority) + 1;
+				CurrentTeamTextData[3] = new TCHAR[strLen];
 				GetWindowText(EditPriority, CurrentTeamTextData[3], 256);
+				strLen = GetWindowTextLength(EditMax) + 1;
+				CurrentTeamTextData[4] = new TCHAR[strLen];
 				GetWindowText(EditMax, CurrentTeamTextData[4], 256);
+				strLen = GetWindowTextLength(ComboGroup) + 1;
+				CurrentTeamTextData[5] = new TCHAR[strLen];
 				GetWindowText(ComboGroup, CurrentTeamTextData[5], 256);
+				strLen = GetWindowTextLength(ComboWaypoint) + 1;
+				CurrentTeamTextData[6] = new TCHAR[strLen];
 				GetWindowText(ComboWaypoint, CurrentTeamTextData[6], 256);
+				strLen = GetWindowTextLength(ComboTransportWaypoint) + 1;
+				CurrentTeamTextData[7] = new TCHAR[strLen];
 				GetWindowText(ComboTransportWaypoint, CurrentTeamTextData[7], 256);
+				strLen = GetWindowTextLength(ComboTechLevel) + 1;
+				CurrentTeamTextData[8] = new TCHAR[strLen];
 				GetWindowText(ComboTechLevel, CurrentTeamTextData[8], 256);
+				strLen = GetWindowTextLength(ComboMindControl) + 1;
+				CurrentTeamTextData[9] = new TCHAR[strLen];
 				GetWindowText(ComboMindControl, CurrentTeamTextData[9], 256);
+				strLen = GetWindowTextLength(ComboScript) + 1;
+				CurrentTeamTextData[10] = new TCHAR[strLen];
 				GetWindowText(ComboScript, CurrentTeamTextData[10], 256);
+				strLen = GetWindowTextLength(ComboTaskforce) + 1;
+				CurrentTeamTextData[11] = new TCHAR[strLen];
 				GetWindowText(ComboTaskforce, CurrentTeamTextData[11], 256);
+				strLen = GetWindowTextLength(ComboTag) + 1;
+				CurrentTeamTextData[12] = new TCHAR[strLen];
 				GetWindowText(ComboTag, CurrentTeamTextData[12], 256);
 				int IsChecked[20];
 				for (register int i = 0; i < 20; ++i)	IsChecked[i] = SendMessage(Check[i], BM_GETCHECK, 0, 0);
@@ -1167,7 +1357,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				HWND BtnNew = GetDlgItem(TeamWnd, 1110);
 				SendMessage(BtnNew, WM_LBUTTONDOWN, 1151, 0);
 				SendMessage(BtnNew, WM_LBUTTONUP, 1151, 0);
-				SetWindowText(EditName, strcat(CurrentTeamTextData[0], " Clone"));
+				//SetWindowText(EditName, strcat(CurrentTeamTextData[0], " Clone"));
+				std::string NewName = CurrentTeamTextData[0];
+				NewName += " Clone";
+				SetWindowText(EditName, NewName.c_str());
 				SetWindowText(ComboExpLevel, CurrentTeamTextData[1]);
 				SetWindowText(ComboHouse, CurrentTeamTextData[2]);
 				SetWindowText(EditPriority, CurrentTeamTextData[3]);
@@ -1213,6 +1406,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SendMessage(Check[i], WM_LBUTTONUP, CheckID[i], NULL);
 				}
 
+				for (register int i = 0; i < 13; ++i)	delete[] CurrentTeamTextData[i];
+
 				break;
 			}
 			//AI Triggers
@@ -1241,15 +1436,23 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int CurCheck[6];
 				for (register int i = 0; i < 6; ++i)
 					CurCheck[i] = SendMessage(CheckBox[i], BM_GETCHECK, 0, 0);
-				TCHAR CurEdit[5][256];
-				for (register int i = 0; i < 5; ++i)
-					GetWindowText(Edit[i], CurEdit[i], 256);
+				TCHAR* CurEdit[5];
+				for (register int i = 0; i < 5; ++i) {
+					int strLen = GetWindowTextLength(Edit[i]) + 1;
+					CurEdit[i] = new TCHAR[strLen];
+					GetWindowText(Edit[i], CurEdit[i], strLen);
+				}
+					
 				int CurTriggerType = SendMessage(ComboBox[0], CB_GETCURSEL, 0, 0);
 				int CurTriggerEvent = SendMessage(ComboBox[6], CB_GETCURSEL, 0, 0);
 				int CurTriggerSide = SendMessage(ComboBox[4], CB_GETCURSEL, 0, 0);
-				TCHAR CurComboBox[5][256];
-				for (register int i = 0; i < 5; ++i)
-					GetWindowText(ComboBox[i + 1], CurComboBox[i], 256);
+				TCHAR *CurComboBox[5];
+				for (register int i = 0; i < 5; ++i) {
+					int strLen = GetWindowTextLength(ComboBox[i + 1]) + 1;
+					CurComboBox[i] = new TCHAR[strLen];
+					GetWindowText(ComboBox[i + 1], CurComboBox[i], strLen);
+				}
+					
 
 				//New AI Trigger
 				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1154, NULL);
@@ -1264,12 +1467,16 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				}
 
 
-				SetWindowText(Edit[0], strcat(CurEdit[0], " Clone"));
+				//SetWindowText(Edit[0], strcat(CurEdit[0], " Clone"));
+				std::string NewName = CurEdit[0];
+				NewName += " Clone";
+				SetWindowText(Edit[0], NewName.c_str());
 				for (register int i = 1; i < 5; ++i)
 					SetWindowText(Edit[i], CurEdit[i]);
 
 				SendMessage(ComboBox[0], CB_SETCURSEL, CurTriggerType, 0);
 				SendMessage(ComboBox[6], CB_SETCURSEL, CurTriggerEvent, 0);
+				SendMessage(ComboBox[4], CB_SETCURSEL, CurTriggerSide, 0);
 				for (register int i = 0; i < 5; ++i)
 					SetWindowText(ComboBox[i + 1], CurComboBox[i]);
 
@@ -1280,7 +1487,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SendMessage(ComboBox[4], CB_SETCURSEL, CurTriggerSide, 0);
 				SendMessage(AITriggerWnd, WM_COMMAND, MAKEWPARAM(ComboID[4], CBN_SELCHANGE), (LPARAM)ComboBox[4]);
 
-
+				for (register int i = 0; i < 5; ++i) {
+					delete[] CurEdit[i];
+					delete[] CurComboBox[i];
+				}
 				break;
 			}
 			}
@@ -1296,7 +1506,7 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		// For global initialization
 		g_FA2Wnd = GetWindowHandle();
 		g_Path = GetPath();
-		GetTreeViewHwnd();
+		//GetTreeViewHwnd();
 		LoadINI();
 		LoadFA2CopyConfig();
 		
@@ -1310,12 +1520,25 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 		g_oldProc = (WNDPROC)SetWindowLong(g_FA2Wnd, GWL_WNDPROC, (LONG)HotkeyWndProc);
 	}
+	MSG curMsg = *(MSG*)lParam;
+	switch (curMsg.message) {
+	case WM_SETFOCUS:
+		if ((HWND)(curMsg.wParam) == g_FA2Wnd)
+			g_AllowHotKey = TRUE;
+		break;
+	case WM_KILLFOCUS:
+		if ((HWND)(curMsg.wParam) == g_FA2Wnd)
+			g_AllowHotKey = FALSE;
+		break;
+	default:
+		break;
+	}
 	return CallNextHookEx(g_GetMsgHook, nCode, wParam, lParam);
 }
 
 // Replace for Hotkeys
 LRESULT CALLBACK HotkeyWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	if (uMsg == WM_HOTKEY)
+	if (uMsg == WM_HOTKEY && g_AllowHotKey == TRUE)
 		if (wParam == g_CTRL_S) {
 			g_logger.Info("Ctrl+S Hotkey pressed");
 			HWND SaveWnd = FindWindow(
@@ -1398,7 +1621,7 @@ BOOL CALLBACK HouseDlgProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				((std::pair<std::unordered_map<std::string, bool>*, std::pair<std::string*, std::string*>*>*)lParam)->first;
 			std::pair<std::string*, std::string*>* StringParam =
 				((std::pair<std::unordered_map<std::string, bool>*, std::pair<std::string*, std::string*>*>*)lParam)->second;
-
+			//I think using a pointer to pass information is much funnier than simply using a global variable XD
 			HWND LBA, LBB, EDIT, EDIT2;
 			LBA = GetDlgItem(hwnd, IDC_LIST2);//Allies ListBox
 			LBB = GetDlgItem(hwnd, IDC_LIST3);//Enemy ListBox
@@ -1425,24 +1648,22 @@ BOOL CALLBACK HouseDlgProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				case IDOK:{
 					g_logger.Info("Allie editor confirmed.");
 					HWND LBA = GetDlgItem(hwnd, IDC_LIST2);//Allies ListBox
-					HWND EDIT2 = GetDlgItem(hwnd, IDC_EDIT2);//Allies ListBox
+					HWND EDIT = GetDlgItem(hwnd, IDC_EDIT1);
+					HWND EDIT2 = GetDlgItem(hwnd, IDC_EDIT2);
 					TCHAR str[256];
-					GetWindowText(EDIT2, str, 256);
+					GetWindowText(EDIT2, str, 11);
 					std::string* retStr = (std::string*)(atoi(str));
 					retStr->clear();
 					int AllieCount = SendMessage(LBA, LB_GETCOUNT, NULL, NULL);
-					for (register int i = 0; i < AllieCount - 1; ++i) {
+					for (register int i = 0; i < AllieCount; ++i) {
 						int TextLen = SendMessage(LBA, LB_GETTEXTLEN, i, NULL);
 						if (TextLen == LB_ERR)	break;
-						TCHAR* str = new TCHAR[TextLen + 1];
-						SendMessage(LBA, LB_GETTEXT, i, (LPARAM)str);
-						(*retStr) += ((std::string)str + ',');
+						TCHAR* _str = new TCHAR[TextLen + 1];
+						SendMessage(LBA, LB_GETTEXT, i, (LPARAM)_str);
+						(*retStr) += ((std::string)_str + ',');
 					}
-					int TextLen = SendMessage(LBA, LB_GETTEXTLEN, AllieCount - 1, NULL);
-					if (TextLen == LB_ERR)	break;
-					TCHAR* _str = new TCHAR[TextLen + 1];
-					SendMessage(LBA, LB_GETTEXT, AllieCount - 1, (LPARAM)_str);
-					(*retStr) += (std::string)_str;
+					GetWindowText(EDIT, str, 256);
+					(*retStr) += (std::string)str;
 					EndDialog(hwnd, NULL);
 					return TRUE;
 				}
@@ -1464,6 +1685,7 @@ BOOL CALLBACK HouseDlgProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					SendMessage(LBB, LB_GETTEXT, EnemyCurSelIndex, (LPARAM)str);
 					SendMessage(LBB, LB_DELETESTRING, EnemyCurSelIndex, NULL);
 					SendMessage(LBA, LB_ADDSTRING, NULL, (LPARAM)str);
+					delete[] str;
 					break;
 				}
 				case IDC_BUTTON2: {//Go Enemies
@@ -1479,6 +1701,7 @@ BOOL CALLBACK HouseDlgProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					SendMessage(LBA, LB_GETTEXT, AllieCurSelIndex, (LPARAM)str);
 					SendMessage(LBA, LB_DELETESTRING, AllieCurSelIndex, NULL);
 					SendMessage(LBB, LB_ADDSTRING, NULL, (LPARAM)str);
+					delete[] str;
 					break;
 				}
 				default:
@@ -1486,7 +1709,6 @@ BOOL CALLBACK HouseDlgProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		}
-
 		case WM_CLOSE:{
 			EndDialog(hwnd, NULL);
 			return TRUE;
@@ -1659,6 +1881,7 @@ void LoadFA2CopyConfig() {
 	g_FindWindowConfig.IniWnd = g_ini.Read("FindWindowConfig", "IniWnd");
 	g_FindWindowConfig.HouseWnd = g_ini.Read("FindWindowConfig", "HouseWnd");
 	g_FindWindowConfig.TriggerWnd = g_ini.Read("FindWindowConfig", "TriggerWnd");
+	g_FindWindowConfig.TagWnd = g_ini.Read("FindWindowConfig", "TagWnd");
 	g_FindWindowConfig.TriggerGlobalWnd = g_ini.Read("FindWindowConfig", "TriggerGlobalWnd");
 	g_FindWindowConfig.TriggerEventWnd = g_ini.Read("FindWindowConfig", "TriggerEventWnd");
 	g_FindWindowConfig.TriggerActionWnd = g_ini.Read("FindWindowConfig", "TriggerActionWnd");
@@ -1685,8 +1908,9 @@ void LoadFA2CopyConfig() {
 	g_MessageBoxConfig.Message.TerrainMapUnknown = g_ini.Read("MessageBoxMessage", "TerrainMapUnknown");
 	g_MessageBoxConfig.Message.TriggerEventFull = g_ini.Read("MessageBoxMessage", "TriggerEventFull");
 	g_MessageBoxConfig.Message.TriggerActionFull = g_ini.Read("MessageBoxMessage", "TriggerActionFull");
-	g_MessageBoxConfig.Message.ToolDisabled = g_ini.Read("MessageBoxMessage", "ToolDisabled");
 	g_MessageBoxConfig.Message.HouseWndNotFound = g_ini.Read("MessageBoxMessage", "HouseWndNotFound");
+	g_MessageBoxConfig.Message.INISectionNotFound = g_ini.Read("MessageBoxMessage", "INISectionNotFound");
+	
 }
 #pragma endregion
 
@@ -1750,7 +1974,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 #pragma endregion
 
 #pragma region Export Function
-__declspec(dllexport) void EmptyFunc()
+__declspec(dllexport) void FA2CopyImportFunc()
 {
 	//Do nothing
 }

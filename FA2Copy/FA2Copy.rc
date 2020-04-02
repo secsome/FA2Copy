@@ -51,8 +51,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,0,1,0
- PRODUCTVERSION 0,0,1,0
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -68,13 +68,13 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "CompanyName", "SEC-SOME"
-            VALUE "FileDescription", "Provide support to Taskforce/Script/Team's Copy"
-            VALUE "FileVersion", "0.0.1.0"
+            VALUE "FileDescription", "Provide some supportive functions for FinalAlert2"
+            VALUE "FileVersion", "1.0.0.0"
             VALUE "InternalName", "FA2Copy.dll"
             VALUE "LegalCopyright", "NoCopyright (L) 2020"
             VALUE "OriginalFilename", "FA2Copy.dll"
             VALUE "ProductName", "FinalAlert2Copy"
-            VALUE "ProductVersion", "0.0.1.0"
+            VALUE "ProductVersion", "1.0.0.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -82,16 +82,6 @@ BEGIN
         VALUE "Translation", 0x804, 1200
     END
 END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Icon
-//
-
-// Icon with lowest ID value placed first to ensure application icon
-// remains consistent on all systems.
-IDI_ICON_FA2Copy        ICON                    "D:\\Games\\Mental Omega\\·âÃæÄ£°å\\Logo\\LightBooter.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////

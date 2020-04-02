@@ -5,3 +5,6 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
+
+#include <afx.h>
+#include <afxext.h>
