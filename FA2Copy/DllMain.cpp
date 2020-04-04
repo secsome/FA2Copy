@@ -4,6 +4,7 @@
 // In fact I was about to program a MFC dll
 // but then found it unnecessary XD
 #include "stdafx.h"
+#include "Syringe.h"
 
 #pragma region Global Variables
 // Global Variables
@@ -1978,4 +1979,15 @@ __declspec(dllexport) void FA2CopyImportFunc()
 {
 	//Do nothing
 }
+#pragma endregion
+
+#pragma region Inline Hooks
+
+DEFINE_HOOK(0, Dummy_Hook, 5)
+{
+	UNREFERENCED_PARAMETER(SyringeData::Hooks::_hk__0Dummy_Hook);
+
+	return 0;
+}
+
 #pragma endregion
