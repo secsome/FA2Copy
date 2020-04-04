@@ -247,12 +247,12 @@ struct SyringeHandshakeInfo
 __declspec(align(16)) struct hookdecl {
 	unsigned int hookAddr;
 	unsigned int hookSize;
-	const char * hookName;
+	const char* hookName;
 };
 
 __declspec(align(16)) struct hostdecl {
 	unsigned int hostChecksum;
-	const char * hostName;
+	const char* hostName;
 };
 #pragma warning(pop)
 #pragma pack(pop)

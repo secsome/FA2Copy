@@ -23,9 +23,7 @@ BOOL g_GetMsgHooked;
 BOOL g_TaskforcesRead;
 BOOL g_TaskforceComboFlag;
 BOOL g_TerrainTheaterFlag;
-BOOL g_AllowHotKey;
 
-ATOM g_CTRL_S, g_CTRL_O, g_CTRL_N; // Hot Keys
 WNDPROC g_oldProc; // Save old Proc for Hot Keys
 
 // Some Handle needs to be global for some reason XD
@@ -1511,71 +1509,15 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		LoadINI();
 		LoadFA2CopyConfig();
 		
-		g_CTRL_S = GlobalAddAtom("Ctrl+S");
-		g_CTRL_O = GlobalAddAtom("Ctrl+O");
-		g_CTRL_N = GlobalAddAtom("Ctrl+N");
-		RegisterHotKey(g_FA2Wnd, g_CTRL_S, MOD_CONTROL, 0x53);
-		RegisterHotKey(g_FA2Wnd, g_CTRL_O, MOD_CONTROL, 0x4f);
-		RegisterHotKey(g_FA2Wnd, g_CTRL_N, MOD_CONTROL, 0x4e);
 		int result = GetLastError();
 
 		g_oldProc = (WNDPROC)SetWindowLong(g_FA2Wnd, GWL_WNDPROC, (LONG)HotkeyWndProc);
-	}
-	MSG curMsg = *(MSG*)lParam;
-	switch (curMsg.message) {
-	case WM_SETFOCUS:
-		if ((HWND)(curMsg.wParam) == g_FA2Wnd)
-			g_AllowHotKey = TRUE;
-		break;
-	case WM_KILLFOCUS:
-		if ((HWND)(curMsg.wParam) == g_FA2Wnd)
-			g_AllowHotKey = FALSE;
-		break;
-	default:
-		break;
 	}
 	return CallNextHookEx(g_GetMsgHook, nCode, wParam, lParam);
 }
 
 // Replace for Hotkeys
 LRESULT CALLBACK HotkeyWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	if (uMsg == WM_HOTKEY && g_AllowHotKey == TRUE)
-		if (wParam == g_CTRL_S) {
-			g_logger.Info("Ctrl+S Hotkey pressed");
-			HWND SaveWnd = FindWindow(
-				g_FindWindowConfig.DialogClass.c_str(),
-				g_FindWindowConfig.SaveWnd.c_str()
-			);
-			if(SaveWnd==NULL)
-				SendMessage(g_FA2Wnd, WM_COMMAND, MAKEWPARAM(57603, BN_CLICKED), NULL);
-		}
-		else if (wParam == g_CTRL_O) {
-			g_logger.Info("Ctrl+O Hotkey pressed");
-			HWND LoadWnd = FindWindow(
-				g_FindWindowConfig.DialogClass.c_str(),
-				g_FindWindowConfig.LoadWnd.c_str()
-			);
-			if(LoadWnd==NULL)
-				SendMessage(g_FA2Wnd, WM_COMMAND, MAKEWPARAM(40001, BN_CLICKED), NULL);
-		}
-		else if (wParam == g_CTRL_N) {
-			g_logger.Info("Ctrl+N Hotkey pressed");
-			HWND NewWnd1 = FindWindow(
-				g_FindWindowConfig.DialogClass.c_str(),
-				g_FindWindowConfig.NewWnd1.c_str()
-			);
-			HWND NewWnd2 = FindWindow(
-				g_FindWindowConfig.DialogClass.c_str(),
-				g_FindWindowConfig.NewWnd2.c_str()
-			);
-			HWND NewWnd3 = FindWindow(
-				g_FindWindowConfig.DialogClass.c_str(),
-				g_FindWindowConfig.NewWnd3.c_str()
-			);
-			if (NewWnd1 == NULL && NewWnd2 == NULL && NewWnd3 == NULL)
-				SendMessage(g_FA2Wnd, WM_COMMAND, MAKEWPARAM(57600, BN_CLICKED), NULL);
-		}
-	
 	return g_oldProc(hWnd, uMsg, wParam, lParam);
 }
 
@@ -1948,10 +1890,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 			true
 		);
 		if (g_GetMsgHooked) {
-			g_logger.Info("Unregistering hot keys...");
-			UnregisterHotKey(g_FA2Wnd, g_CTRL_S);
-			UnregisterHotKey(g_FA2Wnd, g_CTRL_O);
-			UnregisterHotKey(g_FA2Wnd, g_CTRL_N);
 		}
 		if (EndHook() == FALSE)
 		{
@@ -1977,7 +1915,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 #pragma region Export Function
 __declspec(dllexport) void FA2CopyImportFunc()
 {
-	//Do nothing
+	// It's not necessary anymore after supported Ares Syringe.
 }
 #pragma endregion
 
@@ -1986,7 +1924,6 @@ __declspec(dllexport) void FA2CopyImportFunc()
 DEFINE_HOOK(0, Dummy_Hook, 5)
 {
 	UNREFERENCED_PARAMETER(SyringeData::Hooks::_hk__0Dummy_Hook);
-
 	return 0;
 }
 
