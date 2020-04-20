@@ -11,7 +11,7 @@
 INI编辑器 INI Editor
 9971 Button 查找 Search
 9972 Edit 查找输入 Input search string
-9982 Button 添加 Add, override
+// 9982 Button 添加 Add, override (NOW USELESS, DONT ADD IT)
 
 标签 Tag
 9970 Button 复制标签 Copy
