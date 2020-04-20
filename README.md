@@ -12,7 +12,7 @@ FA2Copy only uses hook and Windows API to achieve its functions, no memory hook.
 ## More information
 I put a text file(controls.txt) in **examples** as well, you can find all controls need modifying from it.
 
-It's a little bit complex for me to add an accelerate without MFC, now I'm working on it. But for now, FA2Copy will only use a GlobalAtom to realize the hotkey. It means you cannot use Ctrl+S/O/N with FinalAlert2 open for now. You can help to me fix or improve FA2Copy if you like and have time to do it. I'll be very happy for your help. (Maybe we can just focus on working on a map instead of editing something at the same time?)
+Now the accelerators works well, if you find any other issues, please report it(hope not them) to me.
 
 Thanks to Zero-Fanker, now FA2Copy uses ares-syringe to load the dll, which means you needn't modify your executable file's import list anymore.
 
