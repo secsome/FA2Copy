@@ -12,7 +12,7 @@
 logger g_logger; // logger
 
 HWND g_FA2Wnd; // Final Alert 2 Window Handle
-HMODULE g_hModule;// Final Alert 2 HModule, HInstance as well
+HMODULE g_hModule; // Final Alert 2 HModule, HInstance as well
 
 HHOOK g_CallWndHook, g_GetMsgHook;
 // CallWndHook: Catch messages
@@ -24,7 +24,9 @@ BOOL g_TaskforcesRead;
 BOOL g_TaskforceComboFlag;
 BOOL g_TerrainTheaterFlag;
 
-WNDPROC g_oldProc; // Save old Proc for Hot Keys
+WNDPROC g_oldProc; // Save old Main Window Proc
+
+HACCEL g_hAccel; // Accelerator
 
 // Some Handle needs to be global for some reason XD
 HWND g_TerrainWnd;
@@ -43,7 +45,7 @@ Ini g_ini; // Ini Config file
 
 // Necessary items for FindWindow
 struct FindWindowConfig {
-	std::string DialogClass, MapWnd, IniWnd, HouseWnd, TriggerWnd, TagWnd, 
+	std::string DialogClass, MapWnd, IniWnd, IniSubWnd, HouseWnd, TriggerWnd, TagWnd,
 		TriggerGlobalWnd, TriggerEventWnd, TriggerActionWnd,
 		TaskforceWnd, ScriptWnd, TeamWnd, AITriggerWnd, TerrainWnd,
 		SaveWnd, LoadWnd, NewWnd1, NewWnd2, NewWnd3;
@@ -83,8 +85,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 
-// Replace for Hotkeys
-LRESULT CALLBACK HotkeyWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+// Take over the main Window Proc
+LRESULT CALLBACK MyProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 // Get Window
 HWND GetWindowHandle();
@@ -204,6 +206,11 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				
 				SetWindowText(Edit, AlliedText.c_str());
 				
+				SendMessage(HouseWnd, WM_COMMAND, MAKEWPARAM(1099, EN_SETFOCUS), (LPARAM)Edit);
+				SendMessage(HouseWnd, WM_COMMAND, MAKEWPARAM(1099, EN_KILLFOCUS), (LPARAM)Edit);
+				SendMessage(HouseWnd, WM_COMMAND, MAKEWPARAM(1091, CBN_DROPDOWN), (LPARAM)ComboBox);
+				SendMessage(HouseWnd, WM_COMMAND, MAKEWPARAM(1091, CBN_CLOSEUP), (LPARAM)ComboBox);
+
 				break;
 			}
 			//Tree View Debug
@@ -375,6 +382,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 			case 9982: {//Override the Add Button
+				break; //Let it be useless...... at least for now
+				/*
 				g_logger.Info("Add INI Section");
 				HWND INIWnd = FindWindow(
 					g_FindWindowConfig.DialogClass.c_str(),
@@ -392,11 +401,11 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					SendMessage(ComboBox, CB_GETLBTEXT, i, (LPARAM)KeyDictionary[i]);
 				}
 
-				g_logger.Info(std::to_string(SectionCount) + "INI section loaded");
+				g_logger.Info(std::to_string(SectionCount) + " INI sections loaded");
 
 				//New Section
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1037, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1037, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 
 				register int i;
 				for (i = 0; i < SectionCount; ++i) {
@@ -412,12 +421,14 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					}
 					delete[] str;
 				}
+
 				SendMessage(ComboBox, CB_SETCURSEL, i, NULL);
 				SendMessage(INIWnd, WM_COMMAND, MAKEWPARAM(1036, CBN_SELCHANGE), (LPARAM)ComboBox);
 
 				for (auto x : KeyDictionary)	delete[] x;
 
 				break;
+				*/
 			}
 			//Tag
 			case 9970: {//Copy Tag
@@ -440,8 +451,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					GetWindowText(Control[i], CopyData[i], strLen);
 				}
 					
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1154, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1154, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				
 				//SetWindowText(Control[0], strcat(CopyData[0], " Clone"));
 				std::string NewName = CopyData[0];
@@ -495,8 +506,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					break;
 				}
 				g_logger.Info("Current trigger repeat type: " + str[0]);
-				SendMessage(BtnCopy, WM_LBUTTONDOWN, 1403, NULL);
-				SendMessage(BtnCopy, WM_LBUTTONUP, 1403, NULL);
+				SendMessage(BtnCopy, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnCopy, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				SendMessage(ComboBox, CB_SETCURSEL, CurType, NULL);
 				SendMessage(GlobalWnd, WM_COMMAND, MAKEWPARAM(1394, CBN_SELCHANGE), (LPARAM)ComboBox);
 				delete[] str;
@@ -537,8 +548,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					);
 				}
 				else {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1403, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1403, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(CurrEventHandle, CB_SETCURSEL, DesIndex, NULL);
 					SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1167, CBN_SELCHANGE), (LPARAM)CurrEventHandle);
 				}
@@ -579,8 +590,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					);
 				}
 				else {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1403, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1403, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(CurrActionHandle, CB_SETCURSEL, DesIndex, NULL);
 					SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1170, CBN_SELCHANGE), (LPARAM)CurrActionHandle);
 				}
@@ -638,8 +649,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				}
 
 				HWND BtnAdd = GetDlgItem(EventWnd, 1396);
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1396, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1396, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				SendMessage(CurrEventHandle, CB_SETCURSEL, DesIndex, NULL);
 				SendMessage(EventWnd, WM_COMMAND, MAKEWPARAM(1167, CBN_SELCHANGE), (LPARAM)CurrEventHandle);
 
@@ -709,8 +720,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				}
 
 				HWND BtnAdd = GetDlgItem(ActionWnd, 1403);
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1403, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1403, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				SendMessage(CurrActionHandle, CB_SETCURSEL, DesIndex, NULL);
 				SendMessage(ActionWnd, WM_COMMAND, MAKEWPARAM(1170, CBN_SELCHANGE), (LPARAM)CurrActionHandle);
 
@@ -841,8 +852,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				GetWindowText(ComboType, CurType, typeLen);
 				GetWindowText(EditNum, CurNum, numLen);
 				g_logger.Info("Currect (Type,Number) :(" + (std::string)CurType + ',' + (std::string)CurNum);
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1146, 0);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1146, 0);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, 0);
 				int Count = SendMessage(ListBox, LB_GETCOUNT, NULL, NULL);
 				SendMessage(ListBox, LB_SETCURSEL, Count - 1, NULL);
 				SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1145, LBN_SELCHANGE), (LPARAM)ListBox);
@@ -889,8 +900,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				//New Taskforce
 				HWND BtnNew = GetDlgItem(TaskforceWnd, 1151);
-				SendMessage(BtnNew, WM_LBUTTONDOWN, 1151, 0);
-				SendMessage(BtnNew, WM_LBUTTONUP, 1151, 0);
+				SendMessage(BtnNew, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+				SendMessage(BtnNew, WM_LBUTTONUP, MK_LBUTTON, 0);
 				//SetWindowText(EditName, strcat(TaskforceName, " Clone"));
 				std::string NewTaskforceName = TaskforceName;
 				NewTaskforceName += " Clone";
@@ -898,8 +909,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SetWindowText(EditGroup, TaskforceGroup);
 				HWND BtnAdd = GetDlgItem(TaskforceWnd, 1146);
 				for (register int i = 0; i < ListBoxCount; ++i) {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1146, 0);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1146, 0);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, 0);
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
 					SendMessage(TaskforceWnd, WM_COMMAND, MAKEWPARAM(1145, LBN_SELCHANGE), (LPARAM)ListBox);
 					SetWindowText(ComboType, UnitType[i]);
@@ -928,8 +939,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int curTemplateComboCount = SendMessage(ComboScriptTemplate, CB_GETCOUNT, NULL, NULL);
 				if (curTemplateComboCount <= 0) {
 					HWND BtnLoad = GetDlgItem(ScriptWnd, 9977);
-					SendMessage(BtnLoad, WM_LBUTTONDOWN, 9977, NULL);
-					SendMessage(BtnLoad, WM_LBUTTONUP, 9977, NULL);
+					SendMessage(BtnLoad, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnLoad, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				}
 				int curTemplateIndex = SendMessage(ComboScriptTemplate, CB_GETCURSEL, NULL, NULL);
 				ScriptTemplate& curTemplate = g_ScriptTemplates[curTemplateIndex];
@@ -945,8 +956,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				}
 
 				HWND BtnNew = GetDlgItem(ScriptWnd, 1154);
-				SendMessage(BtnNew, WM_LBUTTONDOWN, 1154, 0);
-				SendMessage(BtnNew, WM_LBUTTONUP, 1154, 0);
+				SendMessage(BtnNew, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+				SendMessage(BtnNew, WM_LBUTTONUP, MK_LBUTTON, 0);
 
 				register int i;
 				for (i = 0; i < ScriptCount; ++i) {
@@ -963,8 +974,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				SetWindowText(EditName, curTemplate[0]->second.c_str());
 
 				for (register int i = 1; i <= KeyCount; ++i) {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(ListBox, LB_SETCURSEL, i - 1, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					SendMessage(ComboType, CB_SETCURSEL, atoi(curTemplate[i]->first.c_str()), NULL);
@@ -1010,15 +1021,15 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int CurSelIndex = SendMessage(ListBox, LB_GETCURSEL, 0, 0);
 				if (IsChecked != BST_CHECKED) {
 					g_logger.Info("Script Member - Insert Mode OFF");
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(ListBox, LB_SETCURSEL, ScriptCount, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					break;
 				}
 				if (ScriptCount == 0 || IsChecked != BST_CHECKED) {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(ListBox, LB_SETCURSEL, 0, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					break;
@@ -1034,8 +1045,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					CurPara[i - CurSelIndex] = new TCHAR[strLen];
 					GetWindowText(ComboPara, CurPara[i - CurSelIndex], strLen);
 				}
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				++ScriptCount;
 				for (register int i = CurSelIndex + 1; i < ScriptCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
@@ -1071,8 +1082,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int ScriptCount = SendMessage(ListBox, LB_GETCOUNT, 0, 0);
 				int CurSelIndex = SendMessage(ListBox, LB_GETCURSEL, 0, 0);
 				if (ScriptCount == 0) {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(ListBox, LB_SETCURSEL, 0, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					break;
@@ -1082,8 +1093,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					int t_Type = SendMessage(ComboType, CB_GETCURSEL, NULL, NULL);
 					TCHAR t_Para[256];
 					GetWindowText(ComboPara, t_Para, 256);
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 					SendMessage(ListBox, LB_SETCURSEL, ScriptCount, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					SendMessage(ComboType, CB_SETCURSEL, t_Type, NULL);
@@ -1106,8 +1117,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					CurPara[i - CurSelIndex] = new TCHAR[strLen];
 					GetWindowText(ComboPara, CurPara[i - CurSelIndex], strLen);
 				}
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1173, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				++ScriptCount;
 				for (register int i = CurSelIndex + 1; i < ScriptCount; ++i) {
 					SendMessage(ListBox, LB_SETCURSEL, i, NULL);
@@ -1168,8 +1179,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				//New Script
 				HWND BtnNew = GetDlgItem(ScriptWnd, 1154);
-				SendMessage(BtnNew, WM_LBUTTONDOWN, 1154, 0);
-				SendMessage(BtnNew, WM_LBUTTONUP, 1154, 0);
+				SendMessage(BtnNew, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+				SendMessage(BtnNew, WM_LBUTTONUP, MK_LBUTTON, 0);
 
 				//Find The New Script
 				register int i;
@@ -1195,8 +1206,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				HWND BtnAdd = GetDlgItem(ScriptWnd, 1173);
 				for (register int j = 0; j < ListBoxCount; ++j) {
-					SendMessage(BtnAdd, WM_LBUTTONDOWN, 1173, 0);
-					SendMessage(BtnAdd, WM_LBUTTONUP, 1173, 0);
+					SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+					SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, 0);
 					SendMessage(ListBox, LB_SETCURSEL, j, NULL);
 					SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1170, LBN_SELCHANGE), (LPARAM)ListBox);
 					SendMessage(ComboType, CB_SETCURSEL, ScriptType[j], NULL);
@@ -1232,15 +1243,15 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int curTemplateComboCount = SendMessage(ComboTeamTemplate, CB_GETCOUNT, NULL, NULL);
 				if (curTemplateComboCount <= 0) {
 					HWND BtnLoad = GetDlgItem(TeamWnd, 9981);
-					SendMessage(BtnLoad, WM_LBUTTONDOWN, 9981, NULL);
-					SendMessage(BtnLoad, WM_LBUTTONUP, 9981, NULL);
+					SendMessage(BtnLoad, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(BtnLoad, WM_LBUTTONUP, MK_LBUTTON, NULL);
 				}
 				int curTemplateIndex = SendMessage(ComboTeamTemplate, CB_GETCURSEL, NULL, NULL);
 				TeamTemplate& curTemplate = g_TeamTemplates[curTemplateIndex];
 				g_logger.Info("Now using Team Template " + *curTemplate[0]);
 				HWND BtnNew = GetDlgItem(TeamWnd, 1110);
-				SendMessage(BtnNew, WM_LBUTTONDOWN, 1151, 0);
-				SendMessage(BtnNew, WM_LBUTTONUP, 1151, 0);
+				SendMessage(BtnNew, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+				SendMessage(BtnNew, WM_LBUTTONUP, MK_LBUTTON, 0);
 
 				SetWindowText(EditName, curTemplate[1]->c_str());
 				SetWindowText(EditPriority, curTemplate[3]->c_str());
@@ -1261,10 +1272,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				for (register int i = 0; i < 19; ++i) {
 					SendMessage(Check[i], BM_SETCHECK, (*curTemplate[i + 8] == "1") ? BST_CHECKED : BST_UNCHECKED, 0);
-					SendMessage(Check[i], WM_LBUTTONDOWN, CheckID[i], NULL);
-					SendMessage(Check[i], WM_LBUTTONUP, CheckID[i], NULL);
-					SendMessage(Check[i], WM_LBUTTONDOWN, CheckID[i], NULL);
-					SendMessage(Check[i], WM_LBUTTONUP, CheckID[i], NULL);
+					SendMessage(Check[i], WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(Check[i], WM_LBUTTONUP, MK_LBUTTON, NULL);
+					SendMessage(Check[i], WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(Check[i], WM_LBUTTONUP, MK_LBUTTON, NULL);
 				}
 				break;
 			}
@@ -1354,8 +1365,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 				//New Team
 				HWND BtnNew = GetDlgItem(TeamWnd, 1110);
-				SendMessage(BtnNew, WM_LBUTTONDOWN, 1151, 0);
-				SendMessage(BtnNew, WM_LBUTTONUP, 1151, 0);
+				SendMessage(BtnNew, WM_LBUTTONDOWN, MK_LBUTTON, 0);
+				SendMessage(BtnNew, WM_LBUTTONUP, MK_LBUTTON, 0);
 				//SetWindowText(EditName, strcat(CurrentTeamTextData[0], " Clone"));
 				std::string NewName = CurrentTeamTextData[0];
 				NewName += " Clone";
@@ -1399,10 +1410,10 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				for (register int i = 0; i < 20; ++i) {
 					SendMessage(Check[i], BM_SETCHECK, IsChecked[i], 0);
 					//Save Checkbox Changes
-					SendMessage(Check[i], WM_LBUTTONDOWN, CheckID[i], NULL);
-					SendMessage(Check[i], WM_LBUTTONUP, CheckID[i], NULL);
-					SendMessage(Check[i], WM_LBUTTONDOWN, CheckID[i], NULL);
-					SendMessage(Check[i], WM_LBUTTONUP, CheckID[i], NULL);
+					SendMessage(Check[i], WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(Check[i], WM_LBUTTONUP, MK_LBUTTON, NULL);
+					SendMessage(Check[i], WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(Check[i], WM_LBUTTONUP, MK_LBUTTON, NULL);
 				}
 
 				for (register int i = 0; i < 13; ++i)	delete[] CurrentTeamTextData[i];
@@ -1454,15 +1465,15 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 					
 
 				//New AI Trigger
-				SendMessage(BtnAdd, WM_LBUTTONDOWN, 1154, NULL);
-				SendMessage(BtnAdd, WM_LBUTTONUP, 1154, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+				SendMessage(BtnAdd, WM_LBUTTONUP, MK_LBUTTON, NULL);
 
 				for (register int i = 0; i < 6; ++i) {
 					SendMessage(CheckBox[i], BM_SETCHECK, CurCheck[i], 0);
-					SendMessage(CheckBox[i], WM_LBUTTONDOWN, CheckID[i], NULL);
-					SendMessage(CheckBox[i], WM_LBUTTONUP, CheckID[i], NULL);
-					SendMessage(CheckBox[i], WM_LBUTTONDOWN, CheckID[i], NULL);
-					SendMessage(CheckBox[i], WM_LBUTTONUP, CheckID[i], NULL);
+					SendMessage(CheckBox[i], WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(CheckBox[i], WM_LBUTTONUP, MK_LBUTTON, NULL);
+					SendMessage(CheckBox[i], WM_LBUTTONDOWN, MK_LBUTTON, NULL);
+					SendMessage(CheckBox[i], WM_LBUTTONUP, MK_LBUTTON, NULL);
 				}
 
 
@@ -1508,16 +1519,18 @@ LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam) {
 		//GetTreeViewHwnd();
 		LoadINI();
 		LoadFA2CopyConfig();
-		
-		int result = GetLastError();
+		g_hAccel = LoadAccelerators(g_hModule, MAKEINTRESOURCE(IDR_ACCELERATOR1));
 
-		g_oldProc = (WNDPROC)SetWindowLong(g_FA2Wnd, GWL_WNDPROC, (LONG)HotkeyWndProc);
+		g_oldProc = (WNDPROC)SetWindowLong(g_FA2Wnd, GWL_WNDPROC, (LONG)MyProc);
+	}
+	else {
+		TranslateAccelerator(g_FA2Wnd, g_hAccel, (MSG*)lParam);
 	}
 	return CallNextHookEx(g_GetMsgHook, nCode, wParam, lParam);
 }
 
-// Replace for Hotkeys
-LRESULT CALLBACK HotkeyWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+// Take over the main Window Proc
+LRESULT CALLBACK MyProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return g_oldProc(hWnd, uMsg, wParam, lParam);
 }
 
@@ -1822,6 +1835,7 @@ void LoadFA2CopyConfig() {
 	g_FindWindowConfig.DialogClass = g_ini.Read("FindWindowConfig", "DialogClass");
 	g_FindWindowConfig.MapWnd = g_ini.Read("FindWindowConfig", "MapWnd");
 	g_FindWindowConfig.IniWnd = g_ini.Read("FindWindowConfig", "IniWnd");
+	g_FindWindowConfig.IniSubWnd = g_ini.Read("FindWindowConfig", "IniSubWnd");
 	g_FindWindowConfig.HouseWnd = g_ini.Read("FindWindowConfig", "HouseWnd");
 	g_FindWindowConfig.TriggerWnd = g_ini.Read("FindWindowConfig", "TriggerWnd");
 	g_FindWindowConfig.TagWnd = g_ini.Read("FindWindowConfig", "TagWnd");
@@ -1866,7 +1880,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		g_hModule = hModule;
 		g_logger = (std::string)"FA2Copy.log";
 		g_logger.Custom(
-			"[Global]",
+			"[Global] ",
 			"FA2Copy.dll is attaching...",
 			true
 		);
@@ -1885,7 +1899,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	}
 	case DLL_PROCESS_DETACH:{
 		g_logger.Custom(
-			"[Global]",
+			"[Global] ",
 			"FA2Copy.dll is detaching...",
 			true
 		);
