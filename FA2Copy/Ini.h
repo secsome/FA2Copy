@@ -45,7 +45,6 @@ class Ini
 {
 private:
 	std::string Path;
-
 public:
 	Ini();
 	Ini(std::string path);
@@ -53,7 +52,7 @@ public:
 	std::string Read(std::string section, std::string key);
 	BOOL Exist();
 	std::vector<std::string> Split(std::string str, char ch);
-	std::string& Trim(std::string& s);
+	std::string & Trim(std::string& s);
 };
 #pragma endregion
 
