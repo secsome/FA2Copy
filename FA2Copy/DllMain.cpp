@@ -950,25 +950,30 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				int ScriptCount = SendMessage(AllScriptCombo, CB_GETCOUNT, 0, 0);
 				std::vector<TCHAR*> ScriptDictionary(ScriptCount);
 				for (register int i = 0; i < ScriptCount; ++i) {
-					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, NULL, NULL) + 1;
+					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, i, NULL) + 1;
 					ScriptDictionary[i] = new TCHAR[strLen];
 					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)ScriptDictionary[i]);
 				}
-
+				
 				HWND BtnNew = GetDlgItem(ScriptWnd, 1154);
 				SendMessage(BtnNew, WM_LBUTTONDOWN, MK_LBUTTON, 0);
 				SendMessage(BtnNew, WM_LBUTTONUP, MK_LBUTTON, 0);
 
 				register int i;
 				for (i = 0; i < ScriptCount; ++i) {
-					TCHAR str[256];
+					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, i, NULL) + 1;
+					TCHAR* str = new TCHAR[strLen];
 					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)str);
-					if (strcmp(str, ScriptDictionary[i]) != 0)	break;
+					if (strcmp(str, ScriptDictionary[i]) != 0) {
+						delete[] str;
+						break;
+					}
+					delete[] str;
 				}
 
 				SendMessage(AllScriptCombo, CB_SETCURSEL, i, NULL);
 				SendMessage(ScriptWnd, WM_COMMAND, MAKEWPARAM(1193, CBN_SELCHANGE), (LPARAM)AllScriptCombo);
-
+				
 				HWND BtnAdd = GetDlgItem(ScriptWnd, 1173);
 				int KeyCount = curTemplate.Count();
 				SetWindowText(EditName, curTemplate[0]->second.c_str());
@@ -1185,9 +1190,8 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 				//Find The New Script
 				register int i;
 				for (i = 0; i < ScriptCount; ++i) {
-					TCHAR* str;
 					int strLen = SendMessage(AllScriptCombo, CB_GETLBTEXTLEN, i, NULL) + 1;
-					str = new TCHAR[strLen];
+					TCHAR* str = new TCHAR[strLen];
 					SendMessage(AllScriptCombo, CB_GETLBTEXT, i, (LPARAM)str);
 					if (strcmp(str, ScriptDictionary[i]) != 0) {
 						delete[] str;
@@ -1505,7 +1509,6 @@ LRESULT CALLBACK CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 			}
 			}
 		}
-
 	}
 	return CallNextHookEx(g_CallWndHook, nCode, wParam, lParam);
 }
@@ -1680,7 +1683,7 @@ std::string GetPath() {
 	std::string ret;
 	if (path != NULL)
 		ret = path;
-	free(path);
+	delete[] path;
 	g_logger.Custom("", "Dll Path :" + ret, false);
 	return ret;
 }

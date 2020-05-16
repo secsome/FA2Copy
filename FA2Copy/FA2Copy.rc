@@ -136,6 +136,19 @@ BEGIN
     0
 END
 
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_ACCELERATOR1 ACCELERATORS
+BEGIN
+    "S",            57603,                  VIRTKEY, CONTROL, NOINVERT
+    "O",            40001,                  VIRTKEY, CONTROL, NOINVERT
+    "N",            57600,                  VIRTKEY, CONTROL, NOINVERT
+END
+
 #endif    // 中文(简体，中国) resources
 /////////////////////////////////////////////////////////////////////////////
 
